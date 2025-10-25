@@ -21,6 +21,7 @@ enum List_Err_t {
     CapacityError             = 1 << 2,
     NullptrDataError          = 1 << 4,
     SizeError                 = 1 << 5,//
+    PoisonDataError           = 1 << 8,
     PoisonFillingError        = 1 << 9,//
 };
 
@@ -44,7 +45,7 @@ struct BirthInfo {
     error_code code = 0;                \
                                         \
     if ((code = ListErr(list)) != 0) {    \
-        /*ListDump(list); */                  \
+        ListDump(list);                \
         printf("ASSERTION FAILED\n\n"); \
         return code;                    \
     }                                   \

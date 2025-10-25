@@ -18,9 +18,9 @@ static list_type* AllocateList(ListInfo* list, size_t capacity_got) {
     list->capacity = capacity_got;
     list->data = realloc_ptr;
 
-    #ifdef _DEBUG
-    FillPoison(list);
-    #endif
+    //#ifdef _DEBUG
+    //FillPoison(list);
+    //#endif
 
     return realloc_ptr;
 
@@ -40,6 +40,11 @@ error_code ListCtor(ListInfo* list, size_t capacity_got, BirthInfo* info_got = n
     list_type* calloc_ptr = AllocateList(list, capacity_got);
     if (calloc_ptr == nullptr) return AllocationError;
 
+    //for (size_t index = 1; index < list->capacity; index++) {
+    //    list->data[index].next = POISON;
+    //    list->data[index].prev = POISON;
+    //}
+
     ASSERT_OK(list);
 
     return Ok;
@@ -55,22 +60,14 @@ error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t positio
         if (realloc_ptr == nullptr) return AllocationError;
     }
 
-    if (position == 0) {
-        list->data[list->next_place].prev = 0;
-        list->data[list->next_place].next = list->head;
+    size_t adding_pos = list->next_place;
+    list->data[adding_pos].next = list->data[position].next;
+    list->data[position].next = adding_pos;
 
-        list->data[list->next_place] = value;
-        list->head = list->next_place;
-        //list->next_place = list->data[list->next_place].prev;
+    list->next_place = list->data[adding_pos].prev;
 
-
-
-    }
-
-
-
-
-    list->data[(list->size)++] = element;
+    list->data[adding_pos].prev = position;
+    list->data[list->data[position].next].prev = adding_pos;
 
 
     ASSERT_OK(list);
@@ -196,23 +193,10 @@ void ListDump(ListInfo* list) {
     printf("ERROR_CODE: %d\n", list->errors_bit);
     printf("ListDump(%s[%p]) {\n", info_got->name, &list);
 
-    #ifdef CANARY_ON
-    printf("    stack_canary1 = %x\t%s\n", list->stack_canary1, ContainsError(list->errors_bit, StackCanaryError)       ? "(BAD!)" : "");
-    #endif //canary
-
     printf("    size          = %lu\t%s\n", list->size,      ContainsError(list->errors_bit, SizeError) ||
                                                             ContainsError(list->errors_bit, SizeMoreThanCapacityError)  ? "(BAD!)" : "");
-    printf("    capacity      = %lu\t%s\n", list->capacity,  ContainsError(list->errors_bit, CapacityError)              ? "(BAD!)" : "");
     printf("    poison        = %d\n", POISON);
 
-    #ifdef CANARY_ON
-    printf("    data_canary   = %x\n", DATA_CANARY);
-    printf("    stack_canary  = %x\n", STACK_CANARY);
-    #endif //canary
-
-    #ifdef HASH_ON
-    printf("    hash     = %llu\t%s\n", list->hash_value,ContainsError(list->errors_bit, HashError)                 ? "(BAD!)" : "");
-    #endif
     printf("    data[%p]\t%s", list->data,              ContainsError(list->errors_bit, NullptrDataError) ||
                                                        ContainsError(list->errors_bit, PoisonDataError)  ||
                                                        ContainsError(list->errors_bit, PoisonFillingError)         ? "(BAD!)" : "");
