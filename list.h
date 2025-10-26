@@ -36,7 +36,7 @@ struct BirthInfo {
 
 
 #define INIT_LIST(list, capacity) do {                          \
-    BirthInfo info_got = {__FILE__, __func__, #stk, __LINE__};  \
+    BirthInfo info_got = {__FILE__, __func__, #list, __LINE__};  \
     ListCtor(&list, capacity, &info_got);                       \
 } while(0)
 
@@ -101,7 +101,7 @@ bool ContainsError(error_code code, List_Err_t err);
 
 error_code ListCtor(ListInfo* list, size_t capacity, BirthInfo* info_got);
 //error_code SetHead(ListInfo* list,);
-AddValueAfterPosition(ListInfo* list, list_type value, size_t position)
+error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t position);
 error_code DeletePosition(ListInfo* list, size_t position);
 error_code ListDtor(ListInfo* list);
 
