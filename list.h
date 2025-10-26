@@ -38,7 +38,7 @@ struct BirthInfo {
 #define INIT_LIST(list, capacity) do {                          \
     BirthInfo info_got = {__FILE__, __func__, #list, __LINE__};  \
     ListCtor(&list, capacity, &info_got);                       \
-} while(0)
+} while(0);
 
 #define ASSERT_OK(list) do{              \
                                         \
@@ -50,16 +50,16 @@ struct BirthInfo {
         return code;                    \
     }                                   \
                                         \
-}while(0)
+}while(0);
 
 #else //debug
 
 #define INIT_LIST(list, capacity) do {                          \
     ListCtor(&list, capacity);                                  \
-} while(0)
+} while(0);
 
 #define ASSERT_OK(list) do{              \
-}while(0)
+}while(0);
 
 #endif //debug
 
@@ -93,8 +93,10 @@ struct ListInfo {
 #ifdef _DEBUG
 error_code ListErr(ListInfo* list);
 void ListDump(ListInfo* list);
+void FilingHTML(ListInfo* list, const char* filename);
 bool ContainsError(error_code code, List_Err_t err);
 #endif
+
 
 
 
