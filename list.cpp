@@ -5,12 +5,12 @@
 #include "list.h"
 
 #ifdef _DEBUG
-static void FillPoison(ListInfo* list);
+static void FillPoison(ListInfo* list, size_t capacity_old);
 #endif
 
-static ListElem* AllocateList(ListInfo* list, size_t capacity_got) {
+static ListElem* AllocateList(ListInfo* list, size_t capacity_got, size_t capacity_old) {
 
-    ListElem* realloc_ptr = (ListElem*)realloc(list->data, capacity_got * sizeof(list_type));
+    ListElem* realloc_ptr = (ListElem*)realloc(list->data, capacity_got * sizeof(ListElem));
 
     if (realloc_ptr == nullptr) return nullptr;
 
@@ -19,13 +19,12 @@ static ListElem* AllocateList(ListInfo* list, size_t capacity_got) {
 
 
     #ifdef _DEBUG
-    FillPoison(list);
+    FillPoison(list, capacity_old);
     #endif
 
-    for (size_t index = list->capacity / 2; index < list->capacity; index++) {
+    for (size_t index = capacity_old; index < list->capacity; index++) {
 
         list->data[index].next = 0;
-        list->data[index].elem = 0;
         list->data[index].prev = index+1;
 
     }
@@ -46,15 +45,8 @@ error_code ListCtor(ListInfo* list, size_t capacity_got, BirthInfo* info_got = n
     list->info = info_got;
     #endif //debug
 
-    ListElem* calloc_ptr = AllocateList(list, capacity_got);
+    ListElem* calloc_ptr = AllocateList(list, capacity_got, 0);
     if (calloc_ptr == nullptr) return AllocationError;
-
-    for (size_t index = 0; index < list->capacity; index++) {
-
-        list->data[index].next = 0;
-        list->data[index].elem = 0;
-        list->data[index].prev = index+1;
-    }
 
     ASSERT_OK(list);
 
@@ -67,7 +59,7 @@ error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t positio
     ASSERT_OK(list);
 
     if (position == list->capacity) {
-        ListElem* realloc_ptr = AllocateList(list, list->capacity * LIST_EXPAND_VALUE);
+        ListElem* realloc_ptr = AllocateList(list, list->capacity * LIST_EXPAND_VALUE, list->capacity);
         if (realloc_ptr == nullptr) return AllocationError;
     }
 
@@ -143,15 +135,14 @@ void ListDump(ListInfo* list) {
 
     assert(list);
 
+    const char* html_filename = "out_br.html";
+
+    FILE* out_html = fopen(html_filename, "w");
 
 
-    FILE* out_html = fopen("out_br.html", "w");
+    if (out_html == nullptr) printf("out_html is nullptr\n");
 
-    if (out_html == nullptr) printf("ghghhg");
-
-    printf("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS\n");
-
-    fprintf(out_html, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+    fprintf(out_html, "<pre>\n");
 
 
     BirthInfo* info_got = list->info;
@@ -161,7 +152,7 @@ void ListDump(ListInfo* list) {
     fprintf(out_html, "ERROR_CODE: %d\n", list->errors_bit);
     fprintf(out_html, "ListDump(%s[%p]) {\n", info_got->name, &list);
 
-    fprintf(out_html, "    capacity      = %d\t%s\n", list->capacity,      ContainsError(list->errors_bit, SizeError) ? "(BAD!)" : "");
+    fprintf(out_html, "    capacity      = %lu\t%s\n", list->capacity,      ContainsError(list->errors_bit, SizeError) ? "(BAD!)" : "");
     fprintf(out_html, "    poison        = %d\n", POISON);
 
     fprintf(out_html, "    data[%p]\t%s {\n", list->data,              ContainsError(list->errors_bit, NullptrDataError) ||
@@ -170,14 +161,14 @@ void ListDump(ListInfo* list) {
     if (!(ContainsError(list->errors_bit, NullptrDataError) || ContainsError(list->errors_bit, CapacityError))) {
 
         for (size_t index = 0; index < list->capacity; index++) {
-            const char* is_poison = "";
+            const char* is_used = "";
             const char* is_filled = "*";
             if (index >= list->capacity) is_filled = " ";
             size_t       next  = (list->data)[index].next;
             list_type element  = (list->data)[index].elem;
             size_t       prev  = (list->data)[index].prev;
-            if (element == POISON) is_poison = "(poison)";
-                fprintf(out_html, "        %s [%u] = %5u %5d %5u %s\n", is_filled, index, next, element, prev, is_poison);
+            if (element == POISON) is_used = "(NOT_ELEMENT)";
+                fprintf(out_html, "        %s [%lu] = %15lu | %15d | %15lu | %s\n", is_filled, index, next, element, prev, is_used);
         }
 
         fprintf(out_html, "\n    }");
@@ -192,14 +183,18 @@ void ListDump(ListInfo* list) {
     system("dot -Tsvg out.dot -o img.svg");
 
 
-    //fprintf(out_html, "<img src=\"img.svg\" style=\"max-width: 100%; height: auto;\" />");
+    fprintf(out_html, "<img src=\"img.svg\" style=\"max-width: 100%; height: auto;\" />");
 
     fclose(out_html);
 }
 
-static void FillPoison(ListInfo* list) {
+static void FillPoison(ListInfo* list, size_t capacity_old) {
 
-    return;
+    for (size_t index = capacity_old; index < list->capacity; index++) {
+
+        list->data[index].elem = POISON;
+
+    }
 
 }
 
@@ -214,19 +209,16 @@ void FilingHTML(ListInfo* list, const char* filename) {
     //check
 
     bool* element_included = (bool*)calloc(list->capacity, sizeof(bool));
-    if (element_included == nullptr) printf("AAAAAAAAAAAAGHD");
     size_t* order = (size_t*)calloc(list->capacity, sizeof(size_t));
     //check
 
     order[0] = 0;
-
     element_included[0] = true;
-    printf("SSSSSS44SSSSSSSSSSSSSSSSSSSSSSSSSS\n");
     size_t order_len = 1;
 
     size_t current = list->data[0].next;
 
-    while (current != 0 && current < list->capacity && !element_included[current]) {
+    while (current < list->capacity && !element_included[current]) {
         order[order_len++] = current;
         element_included[current] = true;
         current = list->data[current].next;
@@ -241,7 +233,7 @@ void FilingHTML(ListInfo* list, const char* filename) {
 
     fprintf(out, "  { rank=same; ");
     for (size_t i = 0; i < order_len; i++) {
-        fprintf(out, "node%u; ", order[i]);
+        fprintf(out, "node%lu; ", order[i]);
     }
     fprintf(out, "}\n");
 
@@ -251,21 +243,23 @@ void FilingHTML(ListInfo* list, const char* filename) {
         ListElem* e = &list->data[idx];
         const char* style = "";
         if (idx == list->data[0].next) {
-            style = "penwidth=3, color=black";
+            style = "penwidth=3, color=blue";
         } else if (idx == list->data[0].prev) {
             style = "penwidth=3, color=yellow";
+        } else if (idx == 0) {
+            style = "penwidth=3, color=black";
         }
         fprintf(out,
-            "  node%u [label=\"next: %u\\nelem: %d\\nprev: %u\", %s];\n",
-            idx, e->next, e->elem, e->prev, style);
+            "  node%lu [label=\"index: %lu\\nnext: %lu\\nelem: %d\\nprev: %lu\", %s];\n",
+            idx, idx, e->next, e->elem, e->prev, style);
     }
 
 
     for (size_t i = 0; i < order_len; i++) {
         size_t from = order[i];
         ListElem* e = &list->data[from];
-        if (e->next != 0 && e->next < list->capacity && element_included[e->next]) {
-            fprintf(out, "  node%u -> node%u [color=blue];\n", from, e->next);
+        if (e->next < list->capacity && element_included[e->next]) {
+            fprintf(out, "  node%lu -> node%lu [color=blue];\n", from, e->next);
         }
     }
 
@@ -273,10 +267,14 @@ void FilingHTML(ListInfo* list, const char* filename) {
     for (size_t i = 0; i < order_len; i++) {
         size_t from = order[i];
         ListElem* e = &list->data[from];
-        if (e->prev != 0 && e->prev < list->capacity && element_included[e->prev]) {
-            fprintf(out, "  node%u -> node%u [color=red, style=dashed];\n", from, e->prev);
+        if (e->prev < list->capacity && element_included[e->prev]) {
+            fprintf(out, "  node%lu -> node%lu [color=red, style=dashed];\n", from, e->prev);
         }
     }
+
+    fprintf(out, "    free [shape=ellipse fillcolor=\"#c22424ff\" style=filled label=\"free = %lu\"];\n", list->next_place);
+    fprintf(out, " {rank=same; free; node%lu; }", list->next_place);
+    fprintf(out, "    free -> node%lu [color=brown];\n", 5);
 
     fprintf(out, "}\n");
 
