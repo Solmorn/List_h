@@ -30,7 +30,6 @@ static ListElem* AllocateList(ListInfo* list, size_t capacity_got) {
 
     }
 
-    printf("syka");
 
     return realloc_ptr;
 
@@ -144,17 +143,28 @@ void ListDump(ListInfo* list) {
 
     assert(list);
 
+
+
+    FILE* out_html = fopen("out_br.html", "w");
+
+    if (out_html == nullptr) printf("ghghhg");
+
+    printf("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS\n");
+
+    fprintf(out_html, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+
+
     BirthInfo* info_got = list->info;
-    printf("=====INIT_INFO=====\nFILE: %s /-----/ FUCK: %s /-----/ LINE: %d /-----/ NAME: %s\n\n",
+    fprintf(out_html, "=====INIT_INFO=====\nFILE: %s /-----/ FUCK: %s /-----/ LINE: %d /-----/ NAME: %s\n\n",
                                 info_got->file, info_got->func, info_got->line, info_got->name);
 
-    printf("ERROR_CODE: %d\n", list->errors_bit);
-    printf("ListDump(%s[%p]) {\n", info_got->name, &list);
+    fprintf(out_html, "ERROR_CODE: %d\n", list->errors_bit);
+    fprintf(out_html, "ListDump(%s[%p]) {\n", info_got->name, &list);
 
-    printf("    capacity      = %d\t%s\n", list->capacity,      ContainsError(list->errors_bit, SizeError) ? "(BAD!)" : "");
-    printf("    poison        = %d\n", POISON);
+    fprintf(out_html, "    capacity      = %d\t%s\n", list->capacity,      ContainsError(list->errors_bit, SizeError) ? "(BAD!)" : "");
+    fprintf(out_html, "    poison        = %d\n", POISON);
 
-    printf("    data[%p]\t%s {\n", list->data,              ContainsError(list->errors_bit, NullptrDataError) ||
+    fprintf(out_html, "    data[%p]\t%s {\n", list->data,              ContainsError(list->errors_bit, NullptrDataError) ||
                                                        ContainsError(list->errors_bit, PoisonDataError)  ||
                                                        ContainsError(list->errors_bit, PoisonFillingError)         ? "(BAD!)" : "");
     if (!(ContainsError(list->errors_bit, NullptrDataError) || ContainsError(list->errors_bit, CapacityError))) {
@@ -167,13 +177,24 @@ void ListDump(ListInfo* list) {
             list_type element  = (list->data)[index].elem;
             size_t       prev  = (list->data)[index].prev;
             if (element == POISON) is_poison = "(poison)";
-             printf("        %s [%u] = %5u %5d %5u %s\n", is_filled, index, next, element, prev, is_poison);
+                fprintf(out_html, "        %s [%u] = %5u %5d %5u %s\n", is_filled, index, next, element, prev, is_poison);
         }
 
-        printf("\n    }");
+        fprintf(out_html, "\n    }");
     }
 
-    printf("\n}\n\n");
+    fprintf(out_html, "\n}\n\n");
+
+
+    FilingHTML(list, "out.dot");
+
+
+    system("dot -Tsvg out.dot -o img.svg");
+
+
+    //fprintf(out_html, "<img src=\"img.svg\" style=\"max-width: 100%; height: auto;\" />");
+
+    fclose(out_html);
 }
 
 static void FillPoison(ListInfo* list) {
@@ -193,19 +214,24 @@ void FilingHTML(ListInfo* list, const char* filename) {
     //check
 
     bool* element_included = (bool*)calloc(list->capacity, sizeof(bool));
+    if (element_included == nullptr) printf("AAAAAAAAAAAAGHD");
     size_t* order = (size_t*)calloc(list->capacity, sizeof(size_t));
     //check
 
     order[0] = 0;
+
     element_included[0] = true;
+    printf("SSSSSS44SSSSSSSSSSSSSSSSSSSSSSSSSS\n");
     size_t order_len = 1;
 
     size_t current = list->data[0].next;
+
     while (current != 0 && current < list->capacity && !element_included[current]) {
         order[order_len++] = current;
         element_included[current] = true;
         current = list->data[current].next;
     }
+
 
     fprintf(out, "digraph G {\n");
     fprintf(out, "  orientation=landscape;\n");
