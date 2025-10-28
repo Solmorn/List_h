@@ -187,79 +187,76 @@ bool ContainsError(error_code code, List_Err_t err) {
 }
 
 
-void FilingHTML(ListInfo* list, const char* html_filename) {
-    const char* dot_filename = "temp_graph.dot";
-    const char* svg_filename = "temp_graph.svg";
+void FilingHTML(ListInfo* list, const char* filename) {
 
-    FILE* dot_file = fopen(dot_filename, "w");
-    if (!dot_file) {
-        perror("Ошибка создания dot файла");
-        return;
+    FILE* out = fopen(filename, "w");
+    //check
+
+    bool* element_included = (bool*)calloc(list->capacity, sizeof(bool));
+    size_t* order = (size_t*)calloc(list->capacity, sizeof(size_t));
+    //check
+
+    order[0] = 0;
+    element_included[0] = true;
+    size_t order_len = 1;
+
+    size_t current = list->data[0].next;
+    while (current != 0 && current < list->capacity && !element_included[current]) {
+        order[order_len++] = current;
+        element_included[current] = true;
+        current = list->data[current].next;
     }
 
-    fprintf(dot_file, "digraph G {\n");
-    fprintf(dot_file, "  rankdir=LR;\n");
-    fprintf(dot_file, "  node [shape=rect, style=\"rounded,filled\", fillcolor=lightgray, fontsize=12];\n");
+    fprintf(out, "digraph G {\n");
+    fprintf(out, "  orientation=landscape;\n");
+    fprintf(out, "  rotate=180;\n");
+    fprintf(out, "  node [shape=rect, style=\"rounded,filled\", fillcolor=lightgray, fontsize=12];\n");
 
-    for (size_t i = 0; i < list->capacity; i++) {
-        ListElem e = list->data[i];
-        fprintf(dot_file,
-            "  node%zu [label=\"next: %d\\nelem: %d\\nprev: %d\"];\n",
-            i, e.next, e.elem, e.prev);
+
+    fprintf(out, "  { rank=same; ");
+    for (size_t i = 0; i < order_len; i++) {
+        fprintf(out, "node%u; ", order[i]);
+    }
+    fprintf(out, "}\n");
+
+
+    for (size_t i = 0; i < order_len; i++) {
+        size_t idx = order[i];
+        ListElem* e = &list->data[idx];
+        const char* style = "";
+        if (idx == list->data[0].next) {
+            style = "penwidth=3, color=black";
+        } else if (idx == list->data[0].prev) {
+            style = "penwidth=3, color=yellow";
+        }
+        fprintf(out,
+            "  node%u [label=\"next: %u\\nelem: %d\\nprev: %u\", %s];\n",
+            idx, e->next, e->elem, e->prev, style);
     }
 
-    for (size_t i = 0; i < list->capacity; i++) {
-        ListElem e = list->data[i];
-        if (e.next >= 0 && (size_t)e.next < list->capacity) {
-            fprintf(dot_file, "  node%zu -> node%d [color=blue];\n", i, e.next);
+
+    for (size_t i = 0; i < order_len; i++) {
+        size_t from = order[i];
+        ListElem* e = &list->data[from];
+        if (e->next != 0 && e->next < list->capacity && element_included[e->next]) {
+            fprintf(out, "  node%u -> node%u [color=blue];\n", from, e->next);
         }
     }
 
-    for (size_t i = 0; i < list->capacity; i++) {
-        ListElem e = list->data[i];
-        if (e.prev >= 0 && (size_t)e.prev < list->capacity) {
-            fprintf(dot_file, "  node%zu -> node%d [color=red, style=dashed];\n", i, e.prev);
+
+    for (size_t i = 0; i < order_len; i++) {
+        size_t from = order[i];
+        ListElem* e = &list->data[from];
+        if (e->prev != 0 && e->prev < list->capacity && element_included[e->prev]) {
+            fprintf(out, "  node%u -> node%u [color=red, style=dashed];\n", from, e->prev);
         }
     }
 
-    fprintf(dot_file, "}\n");
-    fclose(dot_file);
+    fprintf(out, "}\n");
 
-    char cmd[512];
-    snprintf(cmd, sizeof(cmd), "dot -Tsvg %s -o %s", dot_filename, svg_filename);
-    if (system(cmd) != 0) {
-        fprintf(stderr, "Ошибка вызова dot\n");
-        return;
-    }
-
-    FILE* svg_file = fopen(svg_filename, "r");
-    if (!svg_file) {
-        perror("Ошибка открытия svg файла");
-        return;
-    }
-
-    FILE* html_file = fopen(html_filename, "w");
-    if (!html_file) {
-        perror("Ошибка создания html файла");
-        fclose(svg_file);
-        return;
-    }
-
-    fprintf(html_file, "<html><head><meta charset=\"UTF-8\"><title>Двусвязный список - граф</title></head><body>\n");
-    fprintf(html_file, "<h2>Граф двусвязного списка</h2>\n");
-
-    char buffer[4096];
-    while (fgets(buffer, sizeof(buffer), svg_file)) {
-        fputs(buffer, html_file);
-    }
-
-    fprintf(html_file, "</body></html>\n");
-
-    fclose(svg_file);
-    fclose(html_file);
-
-    remove(dot_filename);
-    remove(svg_filename);
+    fclose(out);
+    free(element_included);
+    free(order);
 }
 
 
