@@ -35,7 +35,7 @@ static ListElem* AllocateList(ListInfo* list, size_t capacity_got, size_t capaci
 }
 
 error_code ListCtor(ListInfo* list, size_t capacity_got, BirthInfo* info_got = nullptr) {
-//
+
     assert(list);
 
     if (capacity_got > MAX_SIZE_VALUE) return CapacityError;
@@ -58,14 +58,14 @@ error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t positio
 
     ASSERT_OK(list);
 
-    if (position == list->capacity) {
+    if (list->current_free_place == list->capacity - 1) {
         ListElem* realloc_ptr = AllocateList(list, list->capacity * LIST_EXPAND_VALUE, list->capacity);
         if (realloc_ptr == nullptr) return AllocationError;
     }
 
-    size_t adding_pos = list->next_place;
+    size_t adding_pos = list->current_free_place;
 
-    list->next_place = list->data[adding_pos].prev;
+    list->current_free_place = list->data[adding_pos].prev;
 
     list->data[adding_pos].prev = position;
     list->data[list->data[position].next].prev = adding_pos;
@@ -77,7 +77,7 @@ error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t positio
     list->data[position].next = adding_pos;
 
 
-
+    list->size++;
 
 
     ASSERT_OK(list);
@@ -86,7 +86,18 @@ error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t positio
 
 }
 
-error_code DeletePosition(ListInfo* list, size_t position) {
+error_code AddValueBeforePosition(ListInfo* list, list_type value, size_t position) {
+
+    ASSERT_OK(list);
+
+    AddValueAfterPosition(list, value, list->data[position].prev);
+
+    ASSERT_OK(list);
+
+    return Ok;
+}
+
+error_code RemovePositionFromList(ListInfo* list, size_t position) {
 
     ASSERT_OK(list);
 
@@ -95,9 +106,11 @@ error_code DeletePosition(ListInfo* list, size_t position) {
 
 
     list->data[position].next = 0;
-    list->data[position].elem = 0;
-    list->data[position].prev = list->next_place;
-    list->next_place = position;
+    list->data[position].elem = POISON;
+    list->data[position].prev = list->current_free_place;
+    list->current_free_place = position;
+
+    list->size--;
 
     ASSERT_OK(list);
 
@@ -124,6 +137,36 @@ error_code ListErr(ListInfo* list) {
 
     error_code code = Ok;
 
+    if (list->data == nullptr) {
+        code |= NullptrDataError;
+        list->errors_bit = code;
+        return code;
+    }
+
+    if (list->size > list->capacity) {
+        code |= SizeMoreThanCapacityError;
+    }
+
+    if (list->capacity > MAX_SIZE_VALUE) {
+        code |= SizeError;
+    }
+
+    size_t current = list->data[0].next;
+    while (current != 0) {
+
+        if (current >= list->capacity || current != list->data[list->data[current].next].prev) {
+            code |= NextPrevError;
+            return code;
+        }
+
+        if (list->data[current].elem == POISON && current != 0) {
+            list->errors_bit = code;
+            code |= PoisonDataError;
+        }
+
+        current = list->data[current].next;
+
+    }
 
 
     list->errors_bit = code;
@@ -131,31 +174,25 @@ error_code ListErr(ListInfo* list) {
     return code;
 }
 
-void ListDump(ListInfo* list) {
+void ListDump(ListInfo* list, FILE* out, DumpingMode mode) {
 
     assert(list);
 
-    const char* html_filename = "out_br.html";
-
-    FILE* out_html = fopen(html_filename, "w");
-
-
-    if (out_html == nullptr) printf("out_html is nullptr\n");
-
-    fprintf(out_html, "<pre>\n");
+    if (mode == HTMLFileMode) fprintf(out, "<pre>\n");
 
 
     BirthInfo* info_got = list->info;
-    fprintf(out_html, "=====INIT_INFO=====\nFILE: %s /-----/ FUCK: %s /-----/ LINE: %d /-----/ NAME: %s\n\n",
+    fprintf(out, "=====INIT_INFO=====\nFILE: %s /-----/ FUCK: %s /-----/ LINE: %d /-----/ NAME: %s\n\n",
                                 info_got->file, info_got->func, info_got->line, info_got->name);
 
-    fprintf(out_html, "ERROR_CODE: %d\n", list->errors_bit);
-    fprintf(out_html, "ListDump(%s[%p]) {\n", info_got->name, &list);
+    fprintf(out, "ERROR_CODE: %d\n", list->errors_bit);
+    fprintf(out, "ListDump(%s[%p]) {\n", info_got->name, &list);
 
-    fprintf(out_html, "    capacity      = %lu\t%s\n", list->capacity,      ContainsError(list->errors_bit, SizeError) ? "(BAD!)" : "");
-    fprintf(out_html, "    poison        = %d\n", POISON);
+    fprintf(out, "    size          = %lu\t%s\n", list->size,      ContainsError(list->errors_bit, SizeError) ? "(BAD!)" : "");
+    fprintf(out, "    capacity      = %lu\t%s\n", list->capacity,      ContainsError(list->errors_bit, SizeMoreThanCapacityError) ? "(BAD!)" : "");
+    fprintf(out, "    poison        = %d\n", POISON);
 
-    fprintf(out_html, "    data[%p]\t%s {\n", list->data,              ContainsError(list->errors_bit, NullptrDataError) ||
+    fprintf(out, "    data[%p]\t%s {\n", list->data,              ContainsError(list->errors_bit, NullptrDataError) ||
                                                        ContainsError(list->errors_bit, PoisonDataError)  ||
                                                        ContainsError(list->errors_bit, PoisonFillingError)         ? "(BAD!)" : "");
     if (!(ContainsError(list->errors_bit, NullptrDataError) || ContainsError(list->errors_bit, CapacityError))) {
@@ -163,29 +200,52 @@ void ListDump(ListInfo* list) {
         for (size_t index = 0; index < list->capacity; index++) {
             const char* is_used = "";
             const char* is_filled = "*";
-            if (index >= list->capacity) is_filled = " ";
+            if (list->data[index].elem == POISON) is_filled = " ";
             size_t       next  = (list->data)[index].next;
             list_type element  = (list->data)[index].elem;
             size_t       prev  = (list->data)[index].prev;
             if (element == POISON) is_used = "(NOT_ELEMENT)";
-                fprintf(out_html, "        %s [%lu] = %15lu | %15d | %15lu | %s\n", is_filled, index, next, element, prev, is_used);
+                fprintf(out, "        %s [%3lu] = %15lu | %15d | %15lu | %s\n", is_filled, index, next, element, prev, is_used);
         }
 
-        fprintf(out_html, "\n    }");
+        fprintf(out, "\n    }");
     }
 
-    fprintf(out_html, "\n}\n\n");
+    fprintf(out, "\n}\n\n");
+
+    if (mode == HTMLFileMode) {
+
+        static size_t number_of_images = 0;
+
+        char command[CHAR_STRING_SIZE] = "";
+        char img_file[CHAR_STRING_SIZE] = "";
 
 
-    FilingHTML(list, "out.dot");
+        const char* temp_dot_code = "temp_dot_code.dot";
+        MakeLogicalDotFromList(list, temp_dot_code);
 
+        sprintf(img_file, "images/img%lu.svg", number_of_images);
 
-    system("dot -Tsvg out.dot -o img.svg");
+        sprintf(command, "dot -Tsvg %s -o %s", temp_dot_code, img_file);
+        system(command);
 
+        fprintf(out, "<img src=\"%s\" style=\"max-width: 100%; height: auto;\" />\n", img_file);
 
-    fprintf(out_html, "<img src=\"img.svg\" style=\"max-width: 100%; height: auto;\" />");
+        number_of_images++;
 
-    fclose(out_html);
+        MakeIndexedDotFromList(list, temp_dot_code);
+
+        sprintf(img_file, "images/img%lu.svg", number_of_images);
+
+        sprintf(command, "dot -Tsvg %s -o %s", temp_dot_code, img_file);
+        system(command);
+
+        fprintf(out, "<img src=\"%s\" style=\"max-width: 100%; height: auto;\" />\n", img_file);
+
+        number_of_images++;
+
+    }
+
 }
 
 static void FillPoison(ListInfo* list, size_t capacity_old) {
@@ -203,7 +263,7 @@ bool ContainsError(error_code code, List_Err_t err) {
 }
 
 
-void FilingHTML(ListInfo* list, const char* filename) {
+void MakeLogicalDotFromList(ListInfo* list, const char* filename) {
 
     FILE* out = fopen(filename, "w");
     //check
@@ -224,14 +284,12 @@ void FilingHTML(ListInfo* list, const char* filename) {
         current = list->data[current].next;
     }
 
-
     fprintf(out, "digraph G {\n");
-    fprintf(out, "  orientation=landscape;\n");
-    fprintf(out, "  rotate=180;\n");
-    fprintf(out, "  node [shape=rect, style=\"rounded,filled\", fillcolor=lightgray, fontsize=12];\n");
+    fprintf(out, "    orientation=portrait;\n");
+    fprintf(out, "    node [shape=rect, style=\"rounded,filled\", fillcolor=lightgray, fontsize=12];\n");
 
 
-    fprintf(out, "  { rank=same; ");
+    fprintf(out, "    {rank=same; ");
     for (size_t i = 0; i < order_len; i++) {
         fprintf(out, "node%lu; ", order[i]);
     }
@@ -250,16 +308,15 @@ void FilingHTML(ListInfo* list, const char* filename) {
             style = "penwidth=3, color=black";
         }
         fprintf(out,
-            "  node%lu [label=\"index: %lu\\nnext: %lu\\nelem: %d\\nprev: %lu\", %s];\n",
+            "    node%lu [label=\"index: %lu\\nnext: %lu\\nelem: %d\\nprev: %lu\", %s];\n",
             idx, idx, e->next, e->elem, e->prev, style);
     }
-
 
     for (size_t i = 0; i < order_len; i++) {
         size_t from = order[i];
         ListElem* e = &list->data[from];
         if (e->next < list->capacity && element_included[e->next]) {
-            fprintf(out, "  node%lu -> node%lu [color=blue];\n", from, e->next);
+            fprintf(out, "    node%lu -> node%lu [color=blue];\n", from, e->next);
         }
     }
 
@@ -268,13 +325,18 @@ void FilingHTML(ListInfo* list, const char* filename) {
         size_t from = order[i];
         ListElem* e = &list->data[from];
         if (e->prev < list->capacity && element_included[e->prev]) {
-            fprintf(out, "  node%lu -> node%lu [color=red, style=dashed];\n", from, e->prev);
+            fprintf(out, "    node%lu -> node%lu [color=red, style=dashed];\n", from, e->prev);
         }
     }
 
-    fprintf(out, "    free [shape=ellipse fillcolor=\"#c22424ff\" style=filled label=\"free = %lu\"];\n", list->next_place);
-    fprintf(out, " {rank=same; free; node%lu; }", list->next_place);
-    fprintf(out, "    free -> node%lu [color=brown];\n", 5);
+    fprintf(out, "    null_elem [shape=ellipse fillcolor=\"#797979ff\" style=filled label=\"null_elem = %d\"];\n", 0);
+    fprintf(out, "    null_elem -> node%d [color=brown];\n", 0);
+
+    fprintf(out, "    head [shape=ellipse fillcolor=\"#3d77e3ff\" style=filled label=\"head = %lu\"];\n", list->data[0].next);
+    fprintf(out, "    head -> node%lu [color=brown];\n", list->data[0].next);
+
+    fprintf(out, "    tail [shape=ellipse fillcolor=\"#eded54ff\" style=filled label=\"tail = %lu\"];\n", list->data[0].prev);
+    fprintf(out, "    tail -> node%lu [color=brown];\n", list->data[0].prev);
 
     fprintf(out, "}\n");
 
@@ -283,5 +345,79 @@ void FilingHTML(ListInfo* list, const char* filename) {
     free(order);
 }
 
+
+void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
+
+    FILE* out = fopen(filename, "w");
+
+    size_t order_len = list->capacity;
+
+    fprintf(out, "digraph G {\n");
+    fprintf(out, "    orientation=portrait;\n");
+    fprintf(out, "    node [shape=rect, style=\"rounded,filled\", fillcolor=lightgray, fontsize=12];\n");
+
+
+    fprintf(out, "    {rank=same; ");
+    for (size_t i = 0; i < order_len; i++) {
+        fprintf(out, "node%lu; ", i);
+    }
+    fprintf(out, "}\n");
+
+    for (size_t i = 0; i < order_len; i++) {
+        size_t idx = i;
+        ListElem* e = &list->data[idx];
+        const char* style = "";
+        if (idx == list->data[0].next) {
+            style = "penwidth=3, color=blue";
+        } else if (idx == list->data[0].prev) {
+            style = "penwidth=3, color=yellow";
+        } else if (idx == 0) {
+            style = "penwidth=3, color=black";
+        }
+        fprintf(out,
+            "    node%lu [label=\"index: %lu\\nnext: %lu\\nelem: %d\\nprev: %lu\", %s];\n",
+            idx, idx, e->next, e->elem, e->prev, style);
+    }
+
+
+    for (size_t i = 0; i < order_len; i++) {
+        size_t from = i;
+        ListElem* e = &list->data[from];
+        if (i < order_len - 1) fprintf(out, "    node%lu -> node%lu [style=invis, weight=100];\n", from, i + 1);
+        if (e->next < list->capacity && (i == 0 || list->data[i].elem != POISON)) {
+            fprintf(out, "    node%lu -> node%lu [color=blue, weight=1];\n", from, e->next);
+        }
+    }
+
+    for (size_t i = 0; i < order_len; i++) {
+        size_t from = i;
+        ListElem* e = &list->data[from];
+        if (e->prev < list->capacity && (i == 0 || list->data[i].elem != POISON)) {
+            fprintf(out, "    node%lu -> node%lu [color=red, style=dashed, weight=0];\n", from, e->prev);
+        }
+    }
+
+    size_t frees = list->current_free_place;
+    while (frees < list->capacity && list->data[frees].prev < list->capacity) {
+        fprintf(out, "    node%lu -> node%lu [color=lightgray, style=dashed, weight=0];\n", frees, list->data[frees].prev);
+        frees = list->data[frees].prev;
+    }
+
+    fprintf(out, "    null_elem [shape=ellipse fillcolor=\"#797979ff\" style=filled label=\"null_elem = %d\"];\n", 0);
+    fprintf(out, "    null_elem -> node%d [color=brown];\n", 0);
+
+    fprintf(out, "    free [shape=ellipse fillcolor=\"#c22498ff\" style=filled label=\"free = %lu\"];\n", list->current_free_place);
+    fprintf(out, "    free -> node%lu [color=brown];\n", list->current_free_place);
+
+    fprintf(out, "    head [shape=ellipse fillcolor=\"#3d77e3ff\" style=filled label=\"head = %lu\"];\n", list->data[0].next);
+    fprintf(out, "    head -> node%lu [color=brown];\n", list->data[0].next);
+
+    fprintf(out, "    tail [shape=ellipse fillcolor=\"#eded54ff\" style=filled label=\"tail = %lu\"];\n", list->data[0].prev);
+    fprintf(out, "    tail -> node%lu [color=brown];\n", list->data[0].prev);
+
+    fprintf(out, "}\n");
+
+    fclose(out);
+}
 
 #endif // for debug func
