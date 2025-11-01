@@ -16,25 +16,40 @@ int main() {
     ListInfo list1 = {};
     INIT_LIST(list1, 10);
 
-    ListDump(&list1, out_html, HTMLFileMode);
 
-    //SizeTestFunc(&list1);
+
+    /*
+    //test1
+    AddValueAfterPosition(&list1, 111, 0);
+    AddValueAfterPosition(&list1, 222, 1);
+    list1.data[5].next = 2;
+    ListDump(&list1, out_html, HTMLFileMode);
+    */
+
+    /*test2
     AddValueAfterPosition(&list1, 111, 0);
     AddValueAfterPosition(&list1, 222, 1);
     AddValueAfterPosition(&list1, 333, 2);
     AddValueAfterPosition(&list1, 444, 3);
-    AddValueAfterPosition(&list1, 555, 4);
-    AddValueAfterPosition(&list1, 666, 5);
-    AddValueAfterPosition(&list1, 777, 6);
-    //list1.data[3].prev = 55;
-//
-    //list1.data[3].next = 5;
+    list1.data[7].elem = 5;
+    */
+
+    /*test2
+    AddValueAfterPosition(&list1, 111, 0);
+    AddValueAfterPosition(&list1, 222, 1);
+    AddValueAfterPosition(&list1, 333, 2);
+    AddValueAfterPosition(&list1, 444, 3);
+    list1.data[2].next = 33;
+    */
+
+
+    AddValueAfterPosition(&list1, 111, 0);
+    AddValueAfterPosition(&list1, 222, 1);
+    AddValueAfterPosition(&list1, 333, 2);
+    AddValueAfterPosition(&list1, 444, 3);
+    list1.data[2].next = 0;
+
     ListDump(&list1, out_html, HTMLFileMode);
-
-
-    //OrderTestFunc(&list1);
-    //ListDump(&list1, out_html, HTMLFileMode);
-
     ListDtor(&list1);
 
     fclose(out_html);

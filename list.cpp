@@ -160,6 +160,7 @@ error_code ListErr(ListInfo* list) {
     size_t size_check = 0;
     while (current_next != 0 && current_prev != 0) {
         //next way check
+        printf("d");
         if (current_next >= list->capacity ||
             list->data[current_next].next >= list->capacity ||
             current_next != list->data[list->data[current_next].next].prev) {
@@ -322,44 +323,48 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
 
     for (size_t i = 0; i < order_len; i++) {
         ListElem* e = &(list->data[i]);
-        if (i == 0 || e->elem != POISON) {
-            if (e->next >= list->size) {
+        if (i == 0 || !(e->elem == POISON && e->next == e->prev)) {
+            if (e->next >= list->capacity) {
             } else if (list->data[e->next].prev == i) {
                 if (colors[i] != BadElementColor) colors[i] = GoodElementColor;
                 if (arrows[i][e->next] != BadArrow) {
                     if (i == 0) printf("SSSSSSSSS0000000000000SSSS\n");
                     arrows[i][e->next] = GoodArrow;
                 }
-                printf("%d__%d___%d\n\n", i, e->next, arrows[i][e->prev]);
             } else {
                 if (arrows[i][e->next] != BadArrow) {
                     arrows[i][e->next] = ProblemArrow;
                 }
-                arrows[e->next][list->data[e->next].prev] = BadArrow;
-                colors[list->data[e->next].prev] = BadElementColor;
+                if (!(list->data[e->next].elem == POISON && list->data[list->data[e->next].prev].elem == POISON)) {
+                    arrows[e->next][list->data[e->next].prev] = BadArrow;
+                    colors[list->data[e->next].prev] = BadElementColor;
+                }
             }
+            printf("++%d__%d___%d\n\n", i, e->next, arrows[i][e->next]);
         }
     }
 
 
     for (size_t i = 0; i < order_len; i++) {
         ListElem* e = &(list->data[i]);
-        if (i == 0 || e->elem != POISON) {
-            if (e->prev >= list->size) {
+        if (i == 0 || !(e->elem == POISON && e->next == e->prev)) {
+            if (e->prev >= list->capacity) {
             } else if (list->data[e->prev].next == i) {
                 if (colors[i] != BadElementColor) colors[i] = GoodElementColor;
                 if (arrows[i][e->prev] != BadArrow) {
                     if (i == 0) printf("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS\n");
                     arrows[i][e->prev] = GoodArrow;
                 }
-                printf("%d__%d___%d\n\n", i, e->prev, arrows[i][e->prev]);
             } else {
                 if (arrows[i][e->prev] != BadArrow) {
                     arrows[i][e->prev] = ProblemArrow;
                 }
-                arrows[e->prev][list->data[e->prev].next] = BadArrow;
-                colors[list->data[e->prev].next] = BadElementColor;
+                if (!(list->data[e->prev].elem == POISON && list->data[list->data[e->prev].next].elem == POISON)) {
+                    arrows[e->prev][list->data[e->prev].next] = BadArrow;
+                    colors[list->data[e->prev].next] = BadElementColor;
+                }
             }
+            printf("==%d__%d___%d\n\n", i, e->prev, arrows[i][e->prev]);
         }
     }
 
@@ -390,6 +395,8 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
         if (colors[i] == NeutralElementColor) fill_color = "lightgray";
         if (colors[i] == GoodElementColor) fill_color = "\"#c4e9c1ff\"";
         if (colors[i] == BadElementColor) fill_color = "red";
+        if (e->elem == POISON && i != 0 && colors[i] == GoodElementColor) fill_color = "red";
+        if (e->elem != POISON && colors[i] == NeutralElementColor) fill_color = "red";
 
         if (idx == list->data[0].next) {
             style = "penwidth=3, color=blue";
@@ -418,10 +425,10 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
                 if (arrows[i][j] == GoodArrow) {
                     if (arrows[i][j] == arrows[j][i]) {
                         printf("%d====%d\n\n", i, j);
-                        fprintf(out, "    node%lu -> node%lu [color=green, weight=0, dir = both];\n", i, j);
+                        fprintf(out, "    node%lu -> node%lu [color=green, weight=2, dir = both];\n", i, j);
                     }
                 } else if (arrows[i][j] == ProblemArrow) {
-                    fprintf(out, "    node%lu -> node%lu [color=red, weight=0, penwidth=3];\n", i, j);
+                    fprintf(out, "    node%lu -> node%lu [color=red, weight=1, penwidth=4];\n", i, j);
                 } else if (arrows[i][j] == BadArrow){
                     fprintf(out, "    node%lu -> node%lu [color=black, weight=0, penwidth=5];\n", i, j);
                 }
@@ -437,10 +444,10 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
                 if (arrows[i][j] == GoodArrow) {
                     if (arrows[i][j] == arrows[j][i]) {
                         printf("%d====%d\n\n", i, j);
-                        fprintf(out, "    node%lu -> node%lu [color=green, weight=0, dir = both];\n", i, j);
+                        fprintf(out, "    node%lu -> node%lu [color=green, weight=2, dir = both];\n", i, j);
                     }
                 } else if (arrows[i][j] == ProblemArrow) {
-                    fprintf(out, "    node%lu -> node%lu [color=blue, weight=0, penwidth=3];\n", i, j);
+                    fprintf(out, "    node%lu -> node%lu [color=blue, weight=1, penwidth=4];\n", i, j);
                 } else if (arrows[i][j] == BadArrow) {
                     fprintf(out, "    node%lu -> node%lu [color=black, weight=0, penwidth=5];\n", i, j);
                 }
