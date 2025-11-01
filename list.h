@@ -10,7 +10,7 @@
 typedef int list_type;
 typedef int error_code;
 
-static const size_t     MAX_SIZE_VALUE     = 0x00011A6AAD;
+static const size_t     MAX_SIZE_VALUE     = 100;//0x00011A6AAD;
 static const size_t     MIN_SIZE_VALUE     =           10;
 static const list_type  POISON             = 0x00000D1127;
 static const size_t     LIST_EXPAND_VALUE  =            2;
@@ -54,7 +54,7 @@ enum DumpingMode {
                                         \
     error_code code = 0;                \
                                         \
-    if ((code = ListErr(list)) != 0) {    \
+    if ((code = ListErr(list)) != Ok) {    \
         ListDump(list, stdout, StdMode);                \
         printf("ASSERTION FAILED\n\n"); \
         return code;                    \
@@ -100,7 +100,6 @@ struct ListInfo {
 #ifdef _DEBUG
 error_code ListErr(ListInfo* list);
 void ListDump(ListInfo* list, FILE* out, DumpingMode mode);
-void MakeLogicalDotFromList(ListInfo* list, const char* filename);
 void MakeIndexedDotFromList(ListInfo* list, const char* filename);
 bool ContainsError(error_code code, List_Err_t err);
 #endif
