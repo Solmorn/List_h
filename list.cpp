@@ -52,13 +52,14 @@ error_code ListCtor(ListInfo* list, size_t capacity_got, BirthInfo* info_got = n
     list->data[0].prev = 0;
     list->data[0].elem = POISON;
 
+
     ASSERT_OK(list);
 
     return Ok;
 
 }
 
-error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t position) {
+error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t position, FILE* out_html = nullptr) {
 
     ASSERT_OK(list);
 
@@ -83,6 +84,14 @@ error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t positio
 
     list->size++;
 
+    #ifdef _DEBUG
+    char why_dump[CHAR_STRING_SIZE] = "";
+
+    sprintf(why_dump, "DUMP AFTER ADDING VALUE %d AFTER POSITION %lu FROM %s", value, position, list->info->name);
+    ListDump(list, out_html, HTMLFileMode, why_dump);
+
+    #endif
+
 
     ASSERT_OK(list);
 
@@ -90,18 +99,26 @@ error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t positio
 
 }
 
-error_code AddValueBeforePosition(ListInfo* list, list_type value, size_t position) {
+error_code AddValueBeforePosition(ListInfo* list, list_type value, size_t position, FILE* out_html = nullptr) {
 
     ASSERT_OK(list);
 
     AddValueAfterPosition(list, value, list->data[position].prev);
 
+    #ifdef _DEBUG
+    char why_dump[CHAR_STRING_SIZE] = "";
+
+    sprintf(why_dump, "DUMP AFTER ADDING VALUE %d BEFORE POSITION %lu FROM %s", value, position, list->info->name);
+    ListDump(list, out_html, HTMLFileMode, why_dump);
+
+    #endif
+
     ASSERT_OK(list);
 
     return Ok;
 }
 
-error_code RemovePositionFromList(ListInfo* list, size_t position) {
+error_code RemovePositionFromList(ListInfo* list, size_t position, FILE* out_html = nullptr) {
 
     ASSERT_OK(list);
 
@@ -115,6 +132,14 @@ error_code RemovePositionFromList(ListInfo* list, size_t position) {
     list->current_free_place = position;
 
     list->size--;
+
+    #ifdef _DEBUG
+    char why_dump[CHAR_STRING_SIZE] = "";
+
+    sprintf(why_dump, "DUMP AFTER REMOVING POSITION %lu FROM %s", position, list->info->name);
+    ListDump(list, out_html, HTMLFileMode, why_dump);
+
+    #endif
 
     ASSERT_OK(list);
 
@@ -158,9 +183,8 @@ error_code ListErr(ListInfo* list) {
     size_t current_next = list->data[0].next;
     size_t current_prev = list->data[0].prev;
     size_t size_check = 0;
-    while (current_next != 0 && current_prev != 0) {
+    while (current_next != 0 && current_prev != 0 && size_check <= list->capacity) {
         //next way check
-        printf("d");
         if (current_next >= list->capacity ||
             list->data[current_next].next >= list->capacity ||
             current_next != list->data[list->data[current_next].next].prev) {
@@ -208,12 +232,20 @@ error_code ListErr(ListInfo* list) {
     return code;
 }
 
-void ListDump(ListInfo* list, FILE* out, DumpingMode mode) {
+void ListDump(ListInfo* list, FILE* out, DumpingMode mode, const char* why_dump) {
 
     assert(list);
     ListErr(list);
 
-    if (mode == HTMLFileMode) fprintf(out, "<pre>\n");
+    if (mode == HTMLFileMode) {
+        fprintf(out, "<pre>\n<h2>\n");
+        fprintf(out, "<font color=\"red\">\n");
+        fprintf(out, "=========================================================================================\n"
+                 "%s\n"
+                 "=========================================================================================\n",
+                 why_dump);
+        fprintf(out, "</font>\n</h2> \n");
+    }
 
 
     BirthInfo* info_got = list->info;
@@ -328,7 +360,7 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
             } else if (list->data[e->next].prev == i) {
                 if (colors[i] != BadElementColor) colors[i] = GoodElementColor;
                 if (arrows[i][e->next] != BadArrow) {
-                    if (i == 0) printf("SSSSSSSSS0000000000000SSSS\n");
+                    //if (i == 0) printf("SSSSSSSSS0000000000000SSSS\n");
                     arrows[i][e->next] = GoodArrow;
                 }
             } else {
@@ -340,7 +372,7 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
                     colors[list->data[e->next].prev] = BadElementColor;
                 }
             }
-            printf("++%d__%d___%d\n\n", i, e->next, arrows[i][e->next]);
+            //printf("++%d__%d___%d\n\n", i, e->next, arrows[i][e->next]);
         }
     }
 
@@ -352,7 +384,7 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
             } else if (list->data[e->prev].next == i) {
                 if (colors[i] != BadElementColor) colors[i] = GoodElementColor;
                 if (arrows[i][e->prev] != BadArrow) {
-                    if (i == 0) printf("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS\n");
+                    //if (i == 0) printf("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS\n");
                     arrows[i][e->prev] = GoodArrow;
                 }
             } else {
@@ -364,7 +396,7 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
                     colors[list->data[e->prev].next] = BadElementColor;
                 }
             }
-            printf("==%d__%d___%d\n\n", i, e->prev, arrows[i][e->prev]);
+            //printf("==%d__%d___%d\n\n", i, e->prev, arrows[i][e->prev]);
         }
     }
 
@@ -378,7 +410,7 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
 
     fprintf(out, "digraph G {\n");
     fprintf(out, "    orientation=portrait;\n");
-    fprintf(out, "    node [shape=septagon, style=\"filled, penwidth=3\", fillcolor=red, fontsize=12];\n");
+    fprintf(out, "    node [shape=septagon, style=\"filled\", fillcolor=red, fontsize=12];\n");
 
 
     fprintf(out, "    {rank=same; ");
@@ -424,7 +456,7 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
             if (arrows[i][j] != NoArrow) {
                 if (arrows[i][j] == GoodArrow) {
                     if (arrows[i][j] == arrows[j][i]) {
-                        printf("%d====%d\n\n", i, j);
+                        //printf("%d====%d\n\n", i, j);
                         fprintf(out, "    node%lu -> node%lu [color=green, weight=2, dir = both];\n", i, j);
                     }
                 } else if (arrows[i][j] == ProblemArrow) {
@@ -443,7 +475,7 @@ void MakeIndexedDotFromList(ListInfo* list, const char* filename) {
             if (arrows[i][j] != NoArrow) {
                 if (arrows[i][j] == GoodArrow) {
                     if (arrows[i][j] == arrows[j][i]) {
-                        printf("%d====%d\n\n", i, j);
+                        //printf("%d====%d\n\n", i, j);
                         fprintf(out, "    node%lu -> node%lu [color=green, weight=2, dir = both];\n", i, j);
                     }
                 } else if (arrows[i][j] == ProblemArrow) {

@@ -16,40 +16,54 @@ int main() {
     ListInfo list1 = {};
     INIT_LIST(list1, 10);
 
+    size_t test_number = 4;
+
+    char why_dump[CHAR_STRING_SIZE] = "";
+    char test_changes[CHAR_STRING_SIZE] = "";
+
+    sprintf(why_dump, "TEST %lu START CONDITION DUMP", test_number);
+    ListDump(&list1, out_html, HTMLFileMode, why_dump);
 
 
-    /*
-    //test1
-    AddValueAfterPosition(&list1, 111, 0);
-    AddValueAfterPosition(&list1, 222, 1);
-    list1.data[5].next = 2;
-    ListDump(&list1, out_html, HTMLFileMode);
-    */
+    switch (test_number) {
+        case 1:
+            sprintf(test_changes, "next of data[5] now 2 (was 6)");
+            AddValueAfterPosition(&list1, 111, 0, out_html);
+            AddValueAfterPosition(&list1, 222, 1, out_html);
+            list1.data[5].next = 2;
+            break;
 
-    /*test2
-    AddValueAfterPosition(&list1, 111, 0);
-    AddValueAfterPosition(&list1, 222, 1);
-    AddValueAfterPosition(&list1, 333, 2);
-    AddValueAfterPosition(&list1, 444, 3);
-    list1.data[7].elem = 5;
-    */
+        case 2:
+            sprintf(test_changes, "elem of data[5] now is not a POISON");
+            AddValueAfterPosition(&list1, 111, 0, out_html);
+            AddValueAfterPosition(&list1, 222, 1, out_html);
+            AddValueAfterPosition(&list1, 333, 2, out_html);
+            AddValueAfterPosition(&list1, 444, 3, out_html);
+            list1.data[7].elem = 5;
+            break;
 
-    /*test2
-    AddValueAfterPosition(&list1, 111, 0);
-    AddValueAfterPosition(&list1, 222, 1);
-    AddValueAfterPosition(&list1, 333, 2);
-    AddValueAfterPosition(&list1, 444, 3);
-    list1.data[2].next = 33;
-    */
+        case 3:
+            sprintf(test_changes, "next of data[2] now is not existing node");
+            AddValueAfterPosition(&list1, 111, 0, out_html);
+            AddValueAfterPosition(&list1, 222, 1, out_html);
+            AddValueAfterPosition(&list1, 333, 2, out_html);
+            AddValueAfterPosition(&list1, 444, 3, out_html);
+            list1.data[2].next = 33;
+            break;
 
+        case 4:
+            sprintf(test_changes, "next of data[3] now 1 (was 4)");
+            AddValueAfterPosition(&list1, 111, 0, out_html);
+            AddValueAfterPosition(&list1, 222, 1, out_html);
+            AddValueAfterPosition(&list1, 333, 2, out_html);
+            AddValueAfterPosition(&list1, 444, 3, out_html);
+            list1.data[3].next = 1;
+            break;
+    }
 
-    AddValueAfterPosition(&list1, 111, 0);
-    AddValueAfterPosition(&list1, 222, 1);
-    AddValueAfterPosition(&list1, 333, 2);
-    AddValueAfterPosition(&list1, 444, 3);
-    list1.data[2].next = 0;
+    sprintf(why_dump, "TEST %lu END CONDITION DUMP ||| %s", test_number, test_changes);
+    ListDump(&list1, out_html, HTMLFileMode, why_dump);
 
-    ListDump(&list1, out_html, HTMLFileMode);
     ListDtor(&list1);
 
     fclose(out_html);

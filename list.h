@@ -55,7 +55,7 @@ enum DumpingMode {
     error_code code = 0;                \
                                         \
     if ((code = ListErr(list)) != Ok) {    \
-        ListDump(list, stdout, StdMode);                \
+        ListDump(list, stdout, StdMode, "ASSERTED");                \
         printf("ASSERTION FAILED\n\n"); \
         return code;                    \
     }                                   \
@@ -99,7 +99,7 @@ struct ListInfo {
 
 #ifdef _DEBUG
 error_code ListErr(ListInfo* list);
-void ListDump(ListInfo* list, FILE* out, DumpingMode mode);
+void ListDump(ListInfo* list, FILE* out, DumpingMode mode, const char* why_dump);
 void MakeIndexedDotFromList(ListInfo* list, const char* filename);
 bool ContainsError(error_code code, List_Err_t err);
 #endif
@@ -109,9 +109,9 @@ bool ContainsError(error_code code, List_Err_t err);
 
 
 error_code ListCtor(ListInfo* list, size_t capacity, BirthInfo* info_got);
-error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t position);
-error_code AddValueBeforePosition(ListInfo* list, list_type value, size_t position);
-error_code RemovePositionFromList(ListInfo* list, size_t position);
+error_code AddValueAfterPosition(ListInfo* list, list_type value, size_t position, FILE* out_html);
+error_code AddValueBeforePosition(ListInfo* list, list_type value, size_t position, FILE* out_html);
+error_code RemovePositionFromList(ListInfo* list, size_t position, FILE* out_html);
 error_code ListDtor(ListInfo* list);
 
 #endif
